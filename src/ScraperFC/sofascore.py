@@ -66,7 +66,7 @@ class Sofascore:
     def get_valid_seasons(self, league: str) -> dict:
         """ Returns the valid seasons and their IDs for the given league
 
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :raises TypeError: If any of the parameters are the wrong type.
         :raises InvalidLeagueException: If the league is not valid for this module.
@@ -75,6 +75,16 @@ class Sofascore:
         """
         if not isinstance(league, str):
             raise TypeError('`league` must be a string.')
+        
+        # Special handling for NBA
+        if league == "NBA":
+            # NBA ID in Sofascore is 132
+            url = f'{API_PREFIX}/unique-tournament/132/seasons/'
+            response = botasaurus_browser_get_json(url)
+            seasons = dict([(x['year'], x['id']) for x in response['seasons']])
+            return seasons
+        
+        # Original code for other leagues
         if league not in comps.keys():
             raise InvalidLeagueException(league, 'Sofascore', list(comps.keys()))
 
@@ -87,9 +97,9 @@ class Sofascore:
     def get_match_dicts(self, year: str, league:str) -> list[dict]:
         """ Returns the matches from the Sofascore API for a given league season.
 
-        :param year: .. include:: ./arg_docstrings/year_sofascore.rst
+        :param year: Season year (e.g., '2023/2024')
         :type year: str
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :raises TypeError: If any of the parameters are the wrong type.
         :raises InvalidYearException: If the year is not valid for the league.
@@ -102,11 +112,17 @@ class Sofascore:
         if year not in valid_seasons.keys():
             raise InvalidYearException(year, league, list(valid_seasons.keys()))
 
+        # Special handling for NBA
+        if league == "NBA":
+            league_id = 132
+        else:
+            league_id = comps[league]["SOFASCORE"]
+
         matches = list()
         i = 0
         while 1:
             response = botasaurus_browser_get_json(
-                f'{API_PREFIX}/unique-tournament/{comps[league]["SOFASCORE"]}/' +
+                f'{API_PREFIX}/unique-tournament/{league_id}/' +
                 f'season/{valid_seasons[year]}/events/last/{i}'
             )
             if 'events' not in response:
@@ -230,9 +246,9 @@ class Sofascore:
     def get_league_player_ids(self, year: str, league: str) -> list[int]:
         """ Returns list of player ids for all players in a given year and league
 
-        :param year: .. include:: ./arg_docstrings/year_sofascore.rst
+        :param year: Season year (e.g., '2023/2024')
         :type year: str
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :raises TypeError: If any of the parameters are the wrong type.
         :raises InvalidYearException: If the year is not valid for the league.
@@ -244,7 +260,13 @@ class Sofascore:
         if year not in valid_seasons.keys():
             raise InvalidYearException(year, league, list(valid_seasons.keys()))
 
-        url = f"{API_PREFIX}/unique-tournament/{comps[league]['SOFASCORE']}/season/{valid_seasons[year]}/players"
+        # Special handling for NBA
+        if league == "NBA":
+            league_id = 132
+        else:
+            league_id = comps[league]["SOFASCORE"]
+
+        url = f"{API_PREFIX}/unique-tournament/{league_id}/season/{valid_seasons[year]}/players"
         response = botasaurus_browser_get_json(url)
         player_ids = [x["playerId"] for x in response["players"]]
 
@@ -259,9 +281,9 @@ class Sofascore:
         ) -> pd.DataFrame:
         """ Get every player statistic that can be asked in league pages on Sofascore.
 
-        :param year: .. include:: ./arg_docstrings/year_sofascore.rst
+        :param year: Season year (e.g., '2023/2024')
         :type year: str
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :param accumulation: Value of the filter accumulation. Can be "per90", "perMatch", or
             "total". Defaults to "total".
@@ -276,7 +298,10 @@ class Sofascore:
         """
         if not isinstance(year, str):
             raise TypeError('`year` must be a string.')
+        
+        # Get valid seasons (now works with NBA)
         valid_seasons = self.get_valid_seasons(league)
+        
         if year not in valid_seasons.keys():
             raise InvalidYearException(year, league, list(valid_seasons.keys()))
         if not isinstance(accumulation, str):
@@ -287,7 +312,12 @@ class Sofascore:
 
         positions = self.get_positions(selected_positions)
         season_id = valid_seasons[year]
-        league_id = comps[league]["SOFASCORE"]
+        
+        # Special handling for NBA
+        if league == "NBA":
+            league_id = 132
+        else:
+            league_id = comps[league]["SOFASCORE"]
 
         # Get all player stats from Sofascore API
         offset = 0
@@ -509,9 +539,9 @@ class Sofascore:
     def scrape_team_league_stats(self, year: str, league: str) -> pd.DataFrame:
         """ Get "general" league stats for all teams in the given league year.
 
-        :param year: .. include:: ./arg_docstrings/year_sofascore.rst
+        :param year: Season year (e.g., '2023/2024')
         :type year: str
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :raises TypeError: If any of the parameters are the wrong type.
         :raises InvalidYearException: If the year is not valid for the league.
@@ -525,7 +555,12 @@ class Sofascore:
         if year not in valid_seasons:
             raise InvalidYearException(year, league, list(valid_seasons.keys()))
 
-        league_id = comps[league]["SOFASCORE"]
+        # Special handling for NBA
+        if league == "NBA":
+            league_id = 132
+        else:
+            league_id = comps[league]["SOFASCORE"]
+        
         year_id = valid_seasons[year]
 
         # Find all teams in the league that season
@@ -574,9 +609,9 @@ class Sofascore:
         Please note, the player's team is their current team, not necessarily their team in the
         given year and league.
 
-        :param year: .. include:: ./arg_docstrings/year_sofascore.rst
+        :param year: Season year (e.g., '2023/2024')
         :type year: str
-        :param league: .. include:: ./arg_docstrings/league.rst
+        :param league: League name (e.g., 'EPL', 'LaLiga', 'NBA')
         :type league: str
         :rtype: list[SofascorePlayer]
         """
